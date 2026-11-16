@@ -3,9 +3,9 @@
   const STORAGE = {
     theme: "jesus-theme",
     volume: "jesus-volume",
-    track: "jesus-track",
-    /* gift "seen" flag intentionally unused: the animation shows on every home visit */
+    track: "jesus-track"
   };
+  const SW_RELEASE = "jesus-v3";
 
   const HYMNS = [
     {
@@ -47,6 +47,8 @@
     const base = script ? new URL("../", script.src) : new URL("./", location.href);
     return new URL(path, base).href;
   }
+
+  try { localStorage.removeItem("jesus-gift-seen"); } catch (e) {}
 
   /* Theme */
   function applyTheme(theme) {
@@ -94,12 +96,22 @@
   /* Player */
   let index = 0;
   let audio;
+  let hymnFade = 0;
 
   function loadSavedIndex() {
     try {
       const n = parseInt(localStorage.getItem(STORAGE.track) || "0", 10);
       if (!isNaN(n) && n >= 0 && n < HYMNS.length) index = n;
     } catch (e) {}
+  }
+
+  function savedVolume() {
+    let volume = 0.8;
+    try {
+      const v = parseFloat(localStorage.getItem(STORAGE.volume));
+      if (!isNaN(v)) volume = Math.min(1, Math.max(0, v));
+    } catch (e) {}
+    return volume;
   }
 
   function renderTrack() {
@@ -133,11 +145,39 @@
     });
   }
 
+  function fadeInHymn(duration) {
+    if (!audio) return Promise.resolve();
+    if (!audio.src) renderTrack();
+    const target = savedVolume();
+    const ms = duration || 2800;
+    const token = ++hymnFade;
+    audio.volume = 0;
+    const start = performance.now();
+    const tick = (now) => {
+      if (token !== hymnFade) return;
+      const t = Math.min(1, (now - start) / ms);
+      const eased = t * t * (3 - 2 * t);
+      audio.volume = target * eased;
+      if (t < 1 && !audio.paused) requestAnimationFrame(tick);
+      else if (token === hymnFade) audio.volume = target;
+    };
+    return audio.play().then(() => {
+      requestAnimationFrame(tick);
+    }).catch((err) => {
+      console.warn("Lecture bloquée ou impossible :", err && err.message);
+    });
+  }
+
   function playPause() {
     if (!audio) return;
     if (!audio.src) renderTrack();
-    if (audio.paused) playHymn();
-    else audio.pause();
+    if (audio.paused) {
+      audio.volume = savedVolume();
+      playHymn();
+    } else {
+      hymnFade += 1;
+      audio.pause();
+    }
   }
 
   function initPlayer() {
@@ -152,16 +192,13 @@
     audio.setAttribute("playsinline", "");
     audio.preload = "none";
 
-    let volume = 0.8;
-    try {
-      const v = parseFloat(localStorage.getItem(STORAGE.volume));
-      if (!isNaN(v)) volume = Math.min(1, Math.max(0, v));
-    } catch (e) {}
+    const volume = savedVolume();
     audio.volume = volume;
     const slider = root.querySelector("[data-volume]");
     if (slider) {
       slider.value = String(volume);
       slider.addEventListener("input", () => {
+        hymnFade += 1;
         audio.volume = parseFloat(slider.value);
         try { localStorage.setItem(STORAGE.volume, slider.value); } catch (e) {}
       });
@@ -245,15 +282,23 @@
     if (close) close.addEventListener("click", closeModern);
   }
 
-  /* Gift for Luigi Jimenez */
+  /* Gift for Luigi Jimenez — always replayed on a fresh open of the site */
   function isHomePage() {
     const file = location.pathname.split("/").pop() || "index.html";
     return file === "" || file === "index.html";
   }
 
-  function shouldShowGift() {
-    if (/(?:^|[?&])cadeau=1(?:&|$)/.test(location.search)) return true;
-    return isHomePage();
+  function isInternalNav() {
+    try {
+      if (!document.referrer) return false;
+      return new URL(document.referrer).origin === location.origin;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function homeUrl() {
+    return asset("index.html");
   }
 
   function spawnConfetti(root) {
@@ -275,7 +320,7 @@
     }
   }
 
-  function markGiftSeen() {
+  function cleanGiftQuery() {
     if (/(?:^|[?&])cadeau=1(?:&|$)/.test(location.search)) {
       const url = new URL(location.href);
       url.searchParams.delete("cadeau");
@@ -287,11 +332,44 @@
     overlay.classList.remove("is-on", "is-opening", "is-open");
     document.documentElement.classList.remove("gift-pending");
     document.body.style.overflow = "";
-    markGiftSeen();
+    cleanGiftQuery();
+  }
+
+  /* Soft bell-like tones for the gift opening. Peak gain is about one fifth of a full hymn. */
+  function playGiftOpenSound() {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const startCtx = ctx.resume ? ctx.resume() : Promise.resolve();
+    startCtx.catch(() => {});
+    const master = ctx.createGain();
+    master.connect(ctx.destination);
+    const t0 = ctx.currentTime;
+    master.gain.setValueAtTime(0.0001, t0);
+    master.gain.exponentialRampToValueAtTime(0.16, t0 + 0.18);
+    master.gain.exponentialRampToValueAtTime(0.07, t0 + 1.1);
+    master.gain.exponentialRampToValueAtTime(0.0001, t0 + 3.2);
+
+    const notes = [392.00, 523.25, 659.25, 783.99];
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      const start = t0 + i * 0.12;
+      g.gain.setValueAtTime(0.0001, start);
+      g.gain.exponentialRampToValueAtTime(0.28 - i * 0.04, start + 0.22);
+      g.gain.exponentialRampToValueAtTime(0.0001, start + 2.4);
+      osc.connect(g);
+      g.connect(master);
+      osc.start(start);
+      osc.stop(start + 2.5);
+    });
+    setTimeout(() => { ctx.close().catch(() => {}); }, 3800);
   }
 
   function enterGift(overlay) {
-    playHymn();
+    if (audio && audio.paused) fadeInHymn(1800);
     hideGift(overlay);
   }
 
@@ -300,7 +378,8 @@
     spawnConfetti(overlay);
     const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
     overlay.classList.add("is-opening");
-    playHymn(); /* user gesture */
+    playGiftOpenSound();
+    fadeInHymn(3200);
     const reveal = () => {
       overlay.classList.add("is-open");
       const enter = overlay.querySelector("[data-gift-enter]");
@@ -313,6 +392,14 @@
   function showGift() {
     const overlay = document.getElementById("gift-overlay");
     if (!overlay) return;
+    if (audio && !audio.paused) {
+      hymnFade += 1;
+      audio.pause();
+      audio.currentTime = 0;
+      audio.volume = savedVolume();
+    }
+    const confetti = overlay.querySelector("[data-confetti]");
+    if (confetti) confetti.innerHTML = "";
     overlay.classList.remove("is-opening", "is-open");
     overlay.classList.add("is-on");
     document.documentElement.classList.add("gift-pending");
@@ -336,7 +423,16 @@
       });
     });
 
-    if (shouldShowGift()) showGift();
+    window.addEventListener("pageshow", (event) => {
+      if (event.persisted) showGift();
+    });
+
+    if (!isHomePage() && !isInternalNav()) {
+      location.replace(homeUrl());
+      return;
+    }
+
+    if (isHomePage()) showGift();
     else {
       document.documentElement.classList.remove("gift-pending");
       overlay.classList.remove("is-on");
@@ -347,7 +443,16 @@
     if (!("serviceWorker" in navigator)) return;
     const script = document.querySelector("script[src*='js/app.js']");
     const swUrl = script ? new URL("../sw.js", script.src) : new URL("sw.js", location.href);
-    navigator.serviceWorker.register(swUrl.href).catch(() => {});
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      try {
+        if (sessionStorage.getItem("jesus-sw-reloaded") === SW_RELEASE) return;
+        sessionStorage.setItem("jesus-sw-reloaded", SW_RELEASE);
+      } catch (e) {}
+      location.reload();
+    });
+    navigator.serviceWorker.register(swUrl.href).then((reg) => {
+      if (reg.update) reg.update();
+    }).catch(() => {});
   }
 
   window.JesusApp = { play: playHymn, showGift };

@@ -1,5 +1,5 @@
 /* Offline-friendly cache: core pages and assets. Bible books and audio are cached when first requested. */
-const VERSION = "jesus-v2";
+const VERSION = "jesus-v3";
 const CORE = [
   "./",
   "./index.html",
@@ -7,9 +7,13 @@ const CORE = [
   "./bible.html",
   "./apropos.html",
   "./css/style.css",
+  "./css/style.css?v=3",
   "./css/fonts.css",
+  "./css/fonts.css?v=3",
   "./js/app.js",
+  "./js/app.js?v=3",
   "./js/bible.js",
+  "./js/bible.js?v=3",
   "./data/books.json",
   "./img/logo.svg",
   "./favicon.svg",
@@ -36,9 +40,11 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;
 
-  const isHtml = req.mode === "navigate" ||
-    (req.headers.get("accept") || "").includes("text/html") ||
-    /(?:\.html|\/)$/.test(url.pathname) ||
+  const dest = req.destination;
+  const isShell = req.mode === "navigate" ||
+    dest === "document" || dest === "script" || dest === "style" ||
+    /\.(?:html|js|css)$/.test(url.pathname) ||
+    /(?:\/)$/.test(url.pathname) ||
     !url.pathname.split("/").pop().includes(".");
 
   const put = (res) => {
@@ -49,8 +55,12 @@ self.addEventListener("fetch", (event) => {
     return res;
   };
 
-  if (isHtml) {
-    event.respondWith(fetch(req).then(put).catch(() => caches.match(req)));
+  if (isShell) {
+    event.respondWith(
+      fetch(req).then(put).catch(() =>
+        caches.match(req).then((cached) => cached || caches.match("./index.html"))
+      )
+    );
     return;
   }
 
