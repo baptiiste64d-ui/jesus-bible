@@ -6,7 +6,7 @@
     track: "jesus-track",
     gift: "jesus-gift-seen"
   };
-  const SW_RELEASE = "jesus-v4";
+  const SW_RELEASE = "jesus-v5";
 
   const HYMNS = [
     {
@@ -220,7 +220,7 @@
       if (keep) playHymn();
     });
 
-    audio.addEventListener("play", () => setPlaying(true));
+    audio.addEventListener("play", () => { setPlaying(true); pauseGedeon(); });
     audio.addEventListener("pause", () => setPlaying(false));
     audio.addEventListener("ended", () => {
       index = (index + 1) % HYMNS.length;
@@ -261,6 +261,7 @@
     const btn = document.querySelector("[data-modern]");
     if (!panel) return;
     if (audio && !audio.paused) audio.pause();
+    pauseGedeon();
     const box = panel.querySelector("[data-yt]");
     if (box) ensureModernIframe(box);
     panel.classList.add("is-open");
@@ -279,6 +280,139 @@
       });
     }
     if (close) close.addEventListener("click", closeModern);
+  }
+
+
+  /* Featured Gédéon — official YouTube embed, never hosted */
+  function pauseHymn() {
+    if (!audio) return;
+    hymnFade += 1;
+    if (!audio.paused) audio.pause();
+  }
+
+  function gedeonEmbedUrl(autoplay) {
+    const params = new URLSearchParams({
+      rel: "0",
+      modestbranding: "1",
+      playsinline: "1",
+      enablejsapi: "1",
+      origin: location.origin
+    });
+    if (autoplay) params.set("autoplay", "1");
+    return "https://www.youtube-nocookie.com/embed/" + YT_GEDEON.id + "?" + params.toString();
+  }
+
+  function youtubeCommand(iframe, func, args) {
+    if (!iframe || !iframe.contentWindow) return;
+    iframe.contentWindow.postMessage(JSON.stringify({
+      event: "command",
+      func: func,
+      args: args || []
+    }), "*");
+  }
+
+  function listenYoutube(iframe) {
+    if (!iframe || !iframe.contentWindow) return;
+    iframe.contentWindow.postMessage(JSON.stringify({ event: "listening", id: "gedeon" }), "*");
+  }
+
+  function markGedeonPlaying(playing) {
+    const iframe = document.querySelector("[data-gedeon-yt] iframe");
+    document.querySelectorAll("[data-gedeon-card]").forEach((card) => {
+      const has = !!(iframe && card.contains(iframe));
+      card.classList.toggle("is-playing", !!(playing && has));
+    });
+  }
+
+  function pauseGedeon() {
+    document.querySelectorAll("[data-gedeon-yt] iframe").forEach((iframe) => {
+      youtubeCommand(iframe, "pauseVideo");
+    });
+    markGedeonPlaying(false);
+  }
+
+  function giftYtBox() {
+    return document.querySelector("#gift-overlay [data-gedeon-yt]");
+  }
+
+  function homeYtBox() {
+    return document.querySelector("main [data-gedeon-yt]");
+  }
+
+  function mountGedeon(box, autoplay, restart) {
+    if (!box) return null;
+    let iframe = document.querySelector("[data-gedeon-yt] iframe");
+    if (iframe && iframe.parentElement !== box) box.appendChild(iframe);
+    if (!iframe) {
+      iframe = document.createElement("iframe");
+      iframe.title = YT_GEDEON.artist + " — " + YT_GEDEON.title;
+      iframe.setAttribute("allow", "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share");
+      iframe.setAttribute("allowfullscreen", "");
+      iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+      box.appendChild(iframe);
+    }
+    const shouldLoad = restart || !iframe.getAttribute("src");
+    if (shouldLoad) {
+      iframe.src = gedeonEmbedUrl(autoplay);
+    } else if (autoplay) {
+      listenYoutube(iframe);
+      youtubeCommand(iframe, "playVideo");
+    }
+    iframe.addEventListener("load", () => {
+      listenYoutube(iframe);
+      if (autoplay) {
+        youtubeCommand(iframe, "playVideo");
+        setTimeout(() => { listenYoutube(iframe); youtubeCommand(iframe, "playVideo"); }, 400);
+        setTimeout(() => youtubeCommand(iframe, "playVideo"), 1200);
+      }
+    }, { once: true });
+    return iframe;
+  }
+
+  function playGedeonFromGesture(restart) {
+    pauseHymn();
+    closeModern();
+    const overlay = document.getElementById("gift-overlay");
+    const giftActive = overlay && overlay.classList.contains("is-on");
+    const box = (giftActive && giftYtBox()) || homeYtBox() || giftYtBox();
+    return mountGedeon(box, true, !!restart);
+  }
+
+  function moveGedeonToHome() {
+    const home = homeYtBox();
+    const iframe = document.querySelector("[data-gedeon-yt] iframe");
+    if (!home || !iframe) return;
+    const giftCard = document.querySelector("#gift-overlay [data-gedeon-card]");
+    const wasPlaying = !!(giftCard && giftCard.classList.contains("is-playing"));
+    home.appendChild(iframe);
+    markGedeonPlaying(wasPlaying);
+  }
+
+  function initGedeon() {
+    document.querySelectorAll("[data-gedeon-play]").forEach((btn) => {
+      btn.addEventListener("click", () => playGedeonFromGesture(false));
+    });
+    window.addEventListener("message", (event) => {
+      const origin = event.origin || "";
+      if (origin !== "https://www.youtube-nocookie.com" && origin !== "https://www.youtube.com") return;
+      let data = event.data;
+      if (typeof data === "string") {
+        try { data = JSON.parse(data); } catch (e) { return; }
+      }
+      if (!data) return;
+      if (data.event === "onReady" || data.event === "initialDelivery") {
+        listenYoutube(document.querySelector("[data-gedeon-yt] iframe"));
+      }
+      const info = data.info;
+      if (info && typeof info.playerState === "number") {
+        if (info.playerState === 1) {
+          pauseHymn();
+          markGedeonPlaying(true);
+        } else if (info.playerState === 2 || info.playerState === 0) {
+          markGedeonPlaying(false);
+        }
+      }
+    });
   }
 
   /* Gift for Luigi Jimenez — once on first visit, always on ?cadeau */
@@ -375,7 +509,7 @@
   }
 
   function enterGift(overlay) {
-    if (audio && audio.paused) fadeInHymn(1800);
+    moveGedeonToHome();
     hideGift(overlay);
   }
 
@@ -385,7 +519,7 @@
     const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
     overlay.classList.add("is-opening");
     playGiftOpenSound();
-    fadeInHymn(3200);
+    playGedeonFromGesture(true);
     const reveal = () => {
       overlay.classList.add("is-open");
       const enter = overlay.querySelector("[data-gift-enter]");
@@ -465,6 +599,7 @@
     initNav();
     initPlayer();
     initModern();
+    initGedeon();
     initGift();
     registerSW();
   });

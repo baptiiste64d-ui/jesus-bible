@@ -579,6 +579,14 @@ html.gift-pending body { overflow: hidden; }
 @keyframes rays-spin { to { transform: rotate(360deg) scale(1); } }
 
 .gift-stage { position: relative; z-index: 2; width: min(22rem, 100%); }
+.gift-overlay.is-open,
+.gift-overlay.is-opening { overflow-y: auto; }
+.gift-overlay.is-open { align-items: flex-start; }
+.gift-overlay.is-open .gift-stage,
+.gift-overlay.is-opening .gift-stage {
+  width: min(30rem, 100%);
+  margin-block: auto;
+}
 .gift-box {
   width: 10.5rem; height: 10.5rem;
   margin: 0 auto 1.1rem;
@@ -701,10 +709,25 @@ html.gift-pending body { overflow: hidden; }
 }
 
 .gift-message {
-  display: none;
+  display: block;
+  position: absolute;
+  left: 50%;
+  width: min(30rem, 100%);
+  transform: translateX(-50%);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.gift-overlay.is-open .gift-message {
+  position: relative;
+  left: auto;
+  width: auto;
+  transform: none;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
   animation: msg-in .7s ease both;
 }
-.gift-overlay.is-open .gift-message { display: block; }
 .gift-message .kicker { color: #E0B85A; }
 .gift-message h1 {
   font-size: clamp(2rem, 9vw, 3rem);
@@ -723,12 +746,114 @@ html.gift-pending body { overflow: hidden; }
   font-style: italic;
   font-size: 1.2rem;
   color: #E0B85A;
-  margin: 0 0 1.5rem;
+  margin: 0 0 1rem;
 }
 @keyframes msg-in {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: none; }
 }
+
+
+/* Featured Gédéon — Sony Diaz card */
+.gedeon-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.15rem 1.1rem 1.05rem;
+  margin: 0 0 1.75rem;
+  text-align: center;
+}
+.gedeon-head .kicker { margin-bottom: .15rem; }
+.gedeon-head h2 {
+  font-family: var(--serif);
+  font-size: clamp(1.7rem, 5vw, 2.25rem);
+  margin: 0 0 .15rem;
+  color: var(--wine);
+  line-height: 1.15;
+}
+.gedeon-sub {
+  margin: 0 0 .9rem;
+  color: var(--ink-soft);
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1.1rem;
+}
+.gedeon-stage {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #1a1410;
+}
+.gedeon-poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 1;
+}
+.gedeon-stage .yt-wrap {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.gedeon-card.is-playing .gedeon-stage .yt-wrap { z-index: 2; }
+.gedeon-play {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 5.4rem;
+  height: 5.4rem;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #9a4c42 0%, #7A3B32 100%);
+  color: #F6EFE3;
+  box-shadow: 0 10px 28px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.25);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+.gedeon-play svg { margin-left: .2rem; }
+.gedeon-play-label {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + .45rem);
+  transform: translateX(-50%);
+  font-family: var(--sans);
+  font-size: .78rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: #F6EFE3;
+  text-shadow: 0 1px 8px rgba(0,0,0,.8);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.gedeon-play:hover { background: linear-gradient(180deg, #b85a4e 0%, #8a4338 100%); }
+.gedeon-play:focus-visible { outline: 2px solid #E0B85A; outline-offset: 4px; }
+.gedeon-card.is-playing .gedeon-poster,
+.gedeon-card.is-playing .gedeon-play { opacity: 0; pointer-events: none; }
+.gedeon-credit {
+  font-size: .92rem;
+  margin: .7rem 0 0;
+  color: var(--ink-soft);
+}
+.gift-message .gedeon-card {
+  background: rgba(246, 239, 227, .08);
+  border-color: rgba(224, 184, 90, .38);
+  box-shadow: none;
+  margin: 0 0 1.15rem;
+}
+.gift-message .gedeon-head h2 { color: #F6EFE3; }
+.gift-message .gedeon-sub,
+.gift-message .gedeon-credit { color: #E8D9C0; }
+.gift-message .gedeon-credit a { color: #E0B85A; }
 
 @media (prefers-reduced-motion: reduce) {
   .gift-overlay.is-opening .gift-lid,
