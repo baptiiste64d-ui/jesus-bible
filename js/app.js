@@ -3,9 +3,10 @@
   const STORAGE = {
     theme: "jesus-theme",
     volume: "jesus-volume",
-    track: "jesus-track"
+    track: "jesus-track",
+    gift: "jesus-gift-seen"
   };
-  const SW_RELEASE = "jesus-v3";
+  const SW_RELEASE = "jesus-v4";
 
   const HYMNS = [
     {
@@ -47,8 +48,6 @@
     const base = script ? new URL("../", script.src) : new URL("./", location.href);
     return new URL(path, base).href;
   }
-
-  try { localStorage.removeItem("jesus-gift-seen"); } catch (e) {}
 
   /* Theme */
   function applyTheme(theme) {
@@ -282,23 +281,25 @@
     if (close) close.addEventListener("click", closeModern);
   }
 
-  /* Gift for Luigi Jimenez — always replayed on a fresh open of the site */
+  /* Gift for Luigi Jimenez — once on first visit, always on ?cadeau */
+  const CADEAU_RE = /(?:^|[?&])cadeau(?:=[^&]*)?(?:&|$)/;
+
+  function hasCadeauParam() {
+    return CADEAU_RE.test(location.search);
+  }
+
   function isHomePage() {
     const file = location.pathname.split("/").pop() || "index.html";
     return file === "" || file === "index.html";
   }
 
-  function isInternalNav() {
-    try {
-      if (!document.referrer) return false;
-      return new URL(document.referrer).origin === location.origin;
-    } catch (e) {
-      return false;
-    }
+  function giftAlreadySeen() {
+    try { return localStorage.getItem(STORAGE.gift) === "1"; } catch (e) { return false; }
   }
 
-  function homeUrl() {
-    return asset("index.html");
+  function shouldShowGift() {
+    if (hasCadeauParam()) return true;
+    return isHomePage() && !giftAlreadySeen();
   }
 
   function spawnConfetti(root) {
@@ -321,18 +322,23 @@
   }
 
   function cleanGiftQuery() {
-    if (/(?:^|[?&])cadeau=1(?:&|$)/.test(location.search)) {
+    if (hasCadeauParam()) {
       const url = new URL(location.href);
       url.searchParams.delete("cadeau");
       history.replaceState(null, "", url.pathname + url.search + url.hash);
     }
   }
 
+  function markGiftSeen() {
+    try { localStorage.setItem(STORAGE.gift, "1"); } catch (e) {}
+    cleanGiftQuery();
+  }
+
   function hideGift(overlay) {
     overlay.classList.remove("is-on", "is-opening", "is-open");
     document.documentElement.classList.remove("gift-pending");
     document.body.style.overflow = "";
-    cleanGiftQuery();
+    markGiftSeen();
   }
 
   /* Soft bell-like tones for the gift opening. Peak gain is about one fifth of a full hymn. */
@@ -424,15 +430,13 @@
     });
 
     window.addEventListener("pageshow", (event) => {
-      if (event.persisted) showGift();
+      if (!event.persisted) return;
+      if (!hasCadeauParam()) return;
+      if (overlay.classList.contains("is-on") || overlay.classList.contains("is-opening") || overlay.classList.contains("is-open")) return;
+      showGift();
     });
 
-    if (!isHomePage() && !isInternalNav()) {
-      location.replace(homeUrl());
-      return;
-    }
-
-    if (isHomePage()) showGift();
+    if (shouldShowGift()) showGift();
     else {
       document.documentElement.classList.remove("gift-pending");
       overlay.classList.remove("is-on");

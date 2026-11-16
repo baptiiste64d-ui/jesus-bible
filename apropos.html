@@ -9,8 +9,8 @@
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="css/fonts.css?v=3">
-  <link rel="stylesheet" href="css/style.css?v=3">
+  <link rel="stylesheet" href="css/fonts.css?v=4">
+  <link rel="stylesheet" href="css/style.css?v=4">
   <script>
     (function () {
       try {
@@ -18,7 +18,7 @@
         if (t) document.documentElement.setAttribute("data-theme", t);
         else if (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches)
           document.documentElement.setAttribute("data-theme", "dark");
-        if (/(?:^|[?&])cadeau=1(?:&|$)/.test(location.search))
+        if (/(?:^|[?&])cadeau(?:=[^&]*)?(?:&|$)/.test(location.search))
           document.documentElement.classList.add("gift-pending");
       } catch (e) {}
     })();
@@ -82,7 +82,7 @@
 
 <footer class="site-foot">
   <p>Un cadeau de Baptiste pour Luigi Jimenez.</p>
-  <p><a href="index.html?cadeau=1" data-replay-gift>Revoir le cadeau</a>
+  <p><a href="index.html?cadeau" data-replay-gift>Revoir le cadeau</a>
    · <a href="apropos.html">Sources et licences</a></p>
 </footer>
 
@@ -153,7 +153,7 @@
   </div>
 </div>
 
-<script src="js/app.js?v=3" defer></script>
+<script src="js/app.js?v=4" defer></script>
 
 </body>
 </html>

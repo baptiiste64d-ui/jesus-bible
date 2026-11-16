@@ -1,5 +1,5 @@
 /* Offline-friendly cache: core pages and assets. Bible books and audio are cached when first requested. */
-const VERSION = "jesus-v3";
+const VERSION = "jesus-v4";
 const CORE = [
   "./",
   "./index.html",
@@ -7,13 +7,13 @@ const CORE = [
   "./bible.html",
   "./apropos.html",
   "./css/style.css",
-  "./css/style.css?v=3",
+  "./css/style.css?v=4",
   "./css/fonts.css",
-  "./css/fonts.css?v=3",
+  "./css/fonts.css?v=4",
   "./js/app.js",
-  "./js/app.js?v=3",
+  "./js/app.js?v=4",
   "./js/bible.js",
-  "./js/bible.js?v=3",
+  "./js/bible.js?v=4",
   "./data/books.json",
   "./img/logo.svg",
   "./favicon.svg",
