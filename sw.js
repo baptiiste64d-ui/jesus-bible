@@ -1,5 +1,5 @@
 /* Offline-friendly cache: core pages and assets. Bible books and audio are cached when first requested. */
-const VERSION = "jesus-v1";
+const VERSION = "jesus-v2";
 const CORE = [
   "./",
   "./index.html",
@@ -35,15 +35,28 @@ self.addEventListener("fetch", (event) => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;
+
+  const isHtml = req.mode === "navigate" ||
+    (req.headers.get("accept") || "").includes("text/html") ||
+    /(?:\.html|\/)$/.test(url.pathname) ||
+    !url.pathname.split("/").pop().includes(".");
+
+  const put = (res) => {
+    if (res && res.ok) {
+      const copy = res.clone();
+      caches.open(VERSION).then((cache) => cache.put(req, copy));
+    }
+    return res;
+  };
+
+  if (isHtml) {
+    event.respondWith(fetch(req).then(put).catch(() => caches.match(req)));
+    return;
+  }
+
   event.respondWith(
     caches.match(req).then((cached) => {
-      const fetchAndCache = fetch(req).then((res) => {
-        if (res && res.ok) {
-          const copy = res.clone();
-          caches.open(VERSION).then((cache) => cache.put(req, copy));
-        }
-        return res;
-      }).catch(() => cached);
+      const fetchAndCache = fetch(req).then(put).catch(() => cached);
       return cached || fetchAndCache;
     })
   );

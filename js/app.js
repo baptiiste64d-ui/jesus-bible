@@ -4,7 +4,7 @@
     theme: "jesus-theme",
     volume: "jesus-volume",
     track: "jesus-track",
-    gift: "jesus-gift-seen",
+    /* gift "seen" flag intentionally unused: the animation shows on every home visit */
   };
 
   const HYMNS = [
@@ -246,11 +246,14 @@
   }
 
   /* Gift for Luigi Jimenez */
+  function isHomePage() {
+    const file = location.pathname.split("/").pop() || "index.html";
+    return file === "" || file === "index.html";
+  }
+
   function shouldShowGift() {
-    try {
-      if (/(?:^|[?&])cadeau=1(?:&|$)/.test(location.search)) return true;
-      return localStorage.getItem(STORAGE.gift) !== "1";
-    } catch (e) { return true; }
+    if (/(?:^|[?&])cadeau=1(?:&|$)/.test(location.search)) return true;
+    return isHomePage();
   }
 
   function spawnConfetti(root) {
@@ -273,7 +276,6 @@
   }
 
   function markGiftSeen() {
-    try { localStorage.setItem(STORAGE.gift, "1"); } catch (e) {}
     if (/(?:^|[?&])cadeau=1(?:&|$)/.test(location.search)) {
       const url = new URL(location.href);
       url.searchParams.delete("cadeau");
@@ -329,7 +331,6 @@
     document.querySelectorAll("[data-replay-gift]").forEach((a) => {
       a.addEventListener("click", (e) => {
         e.preventDefault();
-        try { localStorage.removeItem(STORAGE.gift); } catch (err) {}
         closeModern();
         showGift();
       });
